@@ -16,7 +16,9 @@ pattern = '^[0-9]*$'  # Regex to check input : any digit
 random_number = randint(0, 100)
 counter = 0
 user_entry = -1  # Init the userEntry with -1 to be sure of entering the while
-game_file = os.path.dirname(os.path.realpath(__file__)) + "/2a-mol.txt"  # Get the directory of the script for game file
+
+# Get the directory of the script for game file
+game_file = os.path.dirname(os.path.realpath(__file__)) + "/2a-mol.txt"
 
 
 def goodbye(sig="", frame=""):
@@ -56,7 +58,7 @@ def wait_for_response():
 
 
 write_in("Find the mystery number !")
-
+print(random_number)
 while int(user_entry) != int(random_number):
 
     user_entry = wait_for_response()
@@ -67,5 +69,5 @@ while int(user_entry) != int(random_number):
         write_in("less")
     counter += 1
 
-write_in("You win in " + str(counter) + " tries !")
+write_in("You win\nIn " + str(counter) + " tries !")
 sys.exit(0)

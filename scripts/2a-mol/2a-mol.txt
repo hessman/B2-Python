@@ -1,1 +1,2 @@
-The mystery number was :9. Goodbye !
+You win
+ In 6 tries !

@@ -11,36 +11,36 @@ import sys
 from random import randint
 
 pattern = '^[0-9q]*$'  # Regex to check input : any digit or q
-randomNumber = randint(0, 100)
+random_number = randint(0, 100)
 counter = 0
-userEntry = -1  # Init the userEntry with -1 to be sure of entering the while
+user_entry = -1  # Init the userEntry with -1 to be sure of entering the while
 
 
 def goodbye(sig="", frame=""):
     """
-    function to properly exit the script
+    Function to properly exit the script
     """
-    print("La solution était :", randomNumber, ". Aurevoir")
+    print("The mystery number was :", random_number, ". Goodbye !")
     sys.exit(0)
 
 
 signal.signal(signal.SIGTERM, goodbye)
 signal.signal(signal.SIGINT, goodbye)
 
-while not int(userEntry) == int(randomNumber):
+while int(user_entry) != int(random_number):
 
-    userEntry = input("What is the mystery number :")
+    user_entry = input("What is the mystery number ? :")
 
-    while not re.match(pattern, userEntry):
+    while not re.match(pattern, user_entry):
         print("Invalid input, must be ^[0-9q]*$")
-        userEntry = input("What is the mystery number :")
+        user_entry = input("What is the mystery number :")
 
-    if str(userEntry) == 'q':
+    if str(user_entry) == 'q':
         goodbye()
 
-    if int(randomNumber) > int(userEntry):
+    if int(random_number) > int(user_entry):
         print("more")
-    elif int(randomNumber) < int(userEntry):
+    elif int(random_number) < int(user_entry):
         print("less")
     counter += 1
 

@@ -8,19 +8,19 @@
 import re
 
 pattern = '^[A-z]*$'  # Regex to check input : any amount of letter, caps or not
-userEntry = ''
-namesList = []
+user_entry = ''
+names_list = []
 
-while not userEntry == 'q':
+while user_entry != 'q':
 
-    userEntry = input("Enter a name :")
+    user_entry = input("Enter a name :")
 
-    while not re.match(pattern, userEntry):
+    while not re.match(pattern, user_entry):
         print("Invalid input, must be ^[A-z]*$")
-        userEntry = input("Enter a name :")
+        user_entry = input("Enter a name :")
 
-    if not userEntry == 'q':
-        namesList.append(userEntry)
+    if not user_entry == 'q':
+        names_list.append(user_entry)
 
-sorted(namesList)  # We sort the list (by default alphabetically)
-print(namesList)
+sorted(names_list)  # We sort the list (by default alphabetically)
+print(names_list)

@@ -5,11 +5,9 @@
 # Anthony DOMINGUE
 # 31/10/2018
 
-# TODO : SIGINT and SIGTERM
-# TODO : exit function ?
-
 import tarfile
 import hashlib
+import signal
 import json
 import sys
 import os
@@ -22,23 +20,48 @@ dir_to_backup = "./things"
 output_filename = os.path.basename(dir_to_backup)
 
 
+def terminate(code, message=""):
+    """
+    Properly exit the script with the good verbose.
+    :param code: The exit code or sig.
+    :type code: int
+    :param message: Optional, the message will be print if str.
+    """
+    if code == 0:
+        sys.stdout.write(message)
+        sys.stdout.write("\nExiting...\n")
+        sys.exit(0)
+    else:
+        if isinstance(message, str):
+            sys.stderr.write("Error " + str(code) + " :\n" + message)
+        sys.stderr.write("\nExiting...\n")
+        sys.exit(code)
+
+
+signal.signal(signal.SIGTERM, terminate)
+signal.signal(signal.SIGINT, terminate)
+
+
 def to_tar_gz(source, output):
     """
-    Function to compress the source in tar.gz into the output
-    :param source: Path of the directory to compress
-    :param output: Path of the output of the archive
+    Compress the source in tar.gz into the output.
+    :param source: Path of the directory to compress.
+    :type source: str
+    :param output: Path of the output of the archive.
+    :type output: str
     """
     with tarfile.open(output, "w:gz") as tar:
         tar.add(source, arcname=os.path.basename(source))
 
 
-def get_directory_checksum(directory):
+def get_directory_hash(directory):
     """
-    Give a SHA256 checksum of the whole given directory by recursively hash the directory and hash the array of hashes
-    :param directory: Path of the directory to checksum
-    :return: hex sha256 hash of the directory
+    Give a SHA256 hash of the whole given directory by hashing recursively and hash the array of hashes.
+    :param directory: Path of the directory to hash.
+    :type directory: str
+    :return: hex sha256 hash of the directory.
     """
-    sys.stdout.write("Computing hashes...\n")
+    sys.stdout.write("Computing hash...\n")
     hashes = []
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
@@ -56,39 +79,37 @@ def get_directory_checksum(directory):
 
 def initialisation():
     """
-    Function to check if required directories and files exist and create them if needed
+    Check if required directories and files exist and create them if needed.
     """
     sys.stdout.write("Initialisation...\n")
     if not os.path.isdir(dir_to_backup):
-        sys.stderr.write("No directory to backup...\nExiting !\n")
-        sys.exit(1)
+        terminate(100, "No directory to backup !")
     if not os.path.exists(backup_dir):
         try:
             os.makedirs(backup_dir)
         except Exception as error:
-            sys.stderr.write(str(error) + "\nExiting !\n")
-            sys.exit(2)
+            terminate(101, str(error))
     if not os.path.exists(config_dir):
         try:
             os.makedirs(config_dir)
         except Exception as error:
-            sys.stderr.write(str(error) + "\nExiting !\n")
-            sys.exit(2)
+            terminate(101, str(error))
     if not os.path.exists(hashes_json):
         try:
             with open(hashes_json, 'a+') as f:
                 f.write('{}')
         except Exception as error:
-            sys.stderr.write(str(error) + "\nExiting !\n")
-            sys.exit(2)
+            terminate(101, str(error))
     sys.stdout.write("Done !\n")
 
 
 def local_backup(directory, new_hash):
     """
-    Backup locally to the backup_dir
-    :param directory: Path of the directory to backup
-    :param new_hash: The hash of the directory to backup
+    Backup locally to the backup_dir.
+    :param directory: Path of the directory to backup.
+    :type directory: str
+    :param new_hash: The hash of the directory to backup.
+    :type new_hash: str
     """
     sys.stdout.write("Local backup in progress...\n")
     try:
@@ -96,15 +117,16 @@ def local_backup(directory, new_hash):
         sys.stdout.write("Done !\n")
         update_json(directory, new_hash)
     except Exception as error:
-        sys.stderr.write(str(error) + "\nExiting !\n")
-        sys.exit(3)
+        terminate(102, str(error))
 
 
 def update_json(directory, new_hash):
     """
     Update the hashes_json with directory as key and new_hash as value.
-    :param directory: Path of the directory backed up
-    :param new_hash: The hash of the new backed up directory
+    :param directory: Path of the backed up directory.
+    :type directory: str
+    :param new_hash: The hash of the new backed up directory.
+    :type new_hash: str
     """
     sys.stdout.write("Updating entries...\n")
     try:
@@ -114,36 +136,40 @@ def update_json(directory, new_hash):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-        print(data)
         sys.stdout.write("Done !\n")
         sys.exit(0)
-    except Exception as e:
-        sys.stderr.write(str(e) + "\nExiting...\n")
-        sys.exit(5)
+    except Exception as error:
+        terminate(103, str(error))
 
 
-def check(directory):
+def check_for_changes(directory):
     """
-    Compare hash in hashes_json and the return of get_directory_checksum for a given directory.
+    Compare hash in hashes_json and the return of get_directory_hash for a given directory.
     :param directory: The directory to check and eventually backup.
+    :type directory: str
+    :return result: result['hash'] contains the new hash.
+    :return None: If the hashes are equal, no need to backup.
     """
-    new_hash = get_directory_checksum(directory)
+    result = {'hash': get_directory_hash(directory)}
     with open(hashes_json) as f:
         data = json.load(f)
 
-    print("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json)
-    print("computed hash for " + directory + " : " + new_hash)
+    sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
+    sys.stdout.write("computed hash for " + directory + " : " + result['hash'] + "\n")
     if directory in data:
-        if new_hash == data[directory]:
-            sys.stdout.write("Same checksum, exiting...\n")
-            sys.exit(0)
+        if result['hash'] == data[directory]:
+            return None
         else:
-            sys.stdout.write("Different checksum !\n")
-            local_backup(directory, new_hash)
+            sys.stdout.write("Different hashes !\n")
+            return result
     else:
         sys.stdout.write("New archive !\n")
-        local_backup(directory, new_hash)
+        return result
 
 
 initialisation()
-check(dir_to_backup)
+check_result = check_for_changes(dir_to_backup)
+if check_result is not None:
+    local_backup(dir_to_backup, check_result['hash'])
+else:
+    terminate(0, "Same hashes.")

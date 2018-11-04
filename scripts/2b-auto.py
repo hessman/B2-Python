@@ -5,9 +5,9 @@
 # Anthony DOMINGUE
 # 28/10/2018
 
-import re
 import signal
 import sys
+import re
 import os
 from random import randint
 from time import sleep
@@ -23,14 +23,20 @@ response = " "  # Init the userEntry with " " to be sure of entering the while
 game_file = os.path.dirname(os.path.realpath(__file__)) + "/2a-mol/2a-mol.txt"
 
 
-def goodbye(sig="", frame=""):
+def goodbye(code: int, message=""):
     """
-    Function to properly exit the script
+    Properly exit the script.
+    :param code: The exit code or sig.
+    :type code: int
+    :param message: Optional, the message will be print if str.
     """
-    file = open(game_file, 'w')
-    file.write("Player quit after " + str(counter) + " tries. Goodbye !")
-    file.close()
-    sys.exit(0)
+    if code is not 0:
+        with open(game_file, 'w') as file:
+            if isinstance(message, str):
+                file.write(message + "\nPlayer quit after " + str(counter) + " tries. Goodbye !\n")
+            else:
+                file.write("Error : " + str(code) + "\nPlayer quit after " + str(counter) + " tries. Goodbye !\n")
+    sys.exit(code)
 
 
 signal.signal(signal.SIGTERM, goodbye)
@@ -39,32 +45,36 @@ signal.signal(signal.SIGINT, goodbye)
 
 def write_in():
     """
-    Function to write random_number into the game file
+    Write random_number into the game_file.
     """
-    file = open(game_file, 'w')
-    file.write(str(random_number))
-    file.close()
+    try:
+        with open(game_file, 'w') as file:
+            file.write(str(random_number))
+    except Exception as error:
+        goodbye(error.args[0], str(error))
 
 
 def choose_random():
     """
-    Function to get a random number between min_limit and max_limit
-    :return: A random number between min and max value
+    Give a random number between min_limit and max_limit.
+    :return: An integer between min and max value.
     """
     return randint(min_limit, max_limit)
 
 
 def wait_for_response():
     """
-    Function to wait and get the response from the player into the game file
-    :return: The response of the player, an integer
+    Wait and get the response from the player into the game_file.
+    :return: The response of the player, an integer.
     """
     first_line = ""
     while re.match(pattern, first_line):
         sleep(3)
-        file = open(game_file, 'r')
-        first_line = file.readline()
-        file.close()
+        try:
+            with open(game_file, 'r') as file:
+                first_line = file.readline()
+        except Exception as error:
+            goodbye(error.args[0], str(error))
     return str(first_line)
 
 
@@ -84,4 +94,4 @@ while str(response) != "You win\n":
         write_in()
     counter += 1
 
-sys.exit(0)
+goodbye(0)

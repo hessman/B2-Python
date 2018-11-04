@@ -3,7 +3,10 @@
 # 3b-opt.py
 # Backup tool
 # Anthony DOMINGUE
-# 01/11/2018
+# 04/11/2018
+
+# TODO : argparse --help --quiet directory(ies)_path data_path
+# TODO : handle of multiple directories
 
 import tarfile
 import hashlib
@@ -11,6 +14,8 @@ import signal
 import json
 import sys
 import os
+
+quiet = False
 
 backup_dir = "./data"
 config_dir = "./data/.config"
@@ -29,7 +34,7 @@ def terminate(code: int, message=""):
     """
     if code == 0:
         sys.stdout.write(message)
-        sys.stdout.write("\nExiting...\n")
+        write_stdout("\nExiting...\n")
         sys.exit(0)
     else:
         if isinstance(message, str):
@@ -40,6 +45,16 @@ def terminate(code: int, message=""):
 
 signal.signal(signal.SIGTERM, terminate)
 signal.signal(signal.SIGINT, terminate)
+
+
+def write_stdout(message: str):
+    """
+    Write message in sys.stdout if not in quiet mode.
+    :param message: Message to sys.stdout.write
+    :type message: str
+    """
+    if not quiet:
+        sys.stdout.write(message)
 
 
 def to_tar_gz(source: str, output: str):
@@ -61,7 +76,7 @@ def get_directory_hash(directory: str):
     :type directory: str
     :return: hex sha256 hash of the directory.
     """
-    sys.stdout.write("Computing hash...\n")
+    write_stdout("Computing hash...\n")
     hashes = []
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
@@ -73,7 +88,7 @@ def get_directory_hash(directory: str):
     sha256 = hashlib.sha256()
     for h in hashes:
         sha256.update(h.encode('utf-8'))
-    sys.stdout.write("Done !\n")
+    write_stdout("Done !\n")
     return sha256.hexdigest()
 
 
@@ -81,7 +96,7 @@ def initialisation():
     """
     Check if required directories and files exist and create them if needed.
     """
-    sys.stdout.write("Initialisation...\n")
+    write_stdout("Initialisation...\n")
     if not os.path.isdir(dir_to_backup):
         terminate(100, "No directory to backup !")
     if not os.path.exists(backup_dir):
@@ -100,7 +115,7 @@ def initialisation():
                 f.write('{}')
         except Exception as error:
             terminate(error.args[0], str(error))
-    sys.stdout.write("Done !\n")
+    write_stdout("Done !\n")
 
 
 def local_backup(directory: str, new_hash: str):
@@ -111,10 +126,10 @@ def local_backup(directory: str, new_hash: str):
     :param new_hash: The hash of the directory to backup.
     :type new_hash: str
     """
-    sys.stdout.write("Local backup in progress...\n")
+    write_stdout("Local backup in progress...\n")
     try:
         to_tar_gz(directory, backup_dir + "/" + output_filename)
-        sys.stdout.write("Done !\n")
+        write_stdout("Done !\n")
         update_json(directory, new_hash)
     except Exception as error:
         terminate(error.args[0], str(error))
@@ -128,7 +143,7 @@ def update_json(directory: str, new_hash: str):
     :param new_hash: The hash of the new backed up directory.
     :type new_hash: str
     """
-    sys.stdout.write("Updating entries...\n")
+    write_stdout("Updating entries...\n")
     try:
         with open(hashes_json, 'r+') as f:
             data = json.load(f)
@@ -150,20 +165,23 @@ def check_for_changes(directory: str):
     :return result: result['hash'] contains the new hash.
     :return None: If the hashes are equal, no need to backup.
     """
+
+    # I use a dictionary as return for more readability
     result = {'hash': get_directory_hash(directory)}
+
     with open(hashes_json) as f:
         data = json.load(f)
 
-    sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
-    sys.stdout.write("computed hash for " + directory + " : " + result['hash'] + "\n")
+    write_stdout("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
+    write_stdout("computed hash for " + directory + " : " + result['hash'] + "\n")
     if directory in data:
         if result['hash'] == data[directory]:
             return None
         else:
-            sys.stdout.write("Different hashes !\n")
+            write_stdout("Different hashes !\n")
             return result
     else:
-        sys.stdout.write("New archive !\n")
+        write_stdout("New archive !\n")
         return result
 
 

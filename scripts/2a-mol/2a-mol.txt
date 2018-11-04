@@ -1,2 +1,2 @@
-You win
- In 6 tries !
+Error : 2
+The mystery number was 67. Goodbye !

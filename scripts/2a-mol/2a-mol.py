@@ -5,9 +5,9 @@
 # Anthony DOMINGUE
 # 28/10/2018
 
-import re
 import signal
 import sys
+import re
 import os
 from random import randint
 from time import sleep
@@ -21,12 +21,20 @@ user_entry = -1  # Init the userEntry with -1 to be sure of entering the while
 game_file = os.path.dirname(os.path.realpath(__file__)) + "/2a-mol.txt"
 
 
-def goodbye(sig="", frame=""):
+def goodbye(code: int, message=""):
     """
-    Function to properly exit the script
+    Properly exit the script.
+    :param code: The exit code or sig.
+    :type code: int
+    :param message: Optional, the message will be print if str.
     """
-    write_in("The mystery number was " + str(random_number) + ". Goodbye !")
-    sys.exit(0)
+    if code is not 0:
+        with open(game_file, 'w') as file:
+            if isinstance(message, str):
+                file.write(message + "\nThe mystery number was " + str(random_number) + ". Goodbye !\n")
+            else:
+                file.write("Error : " + str(code) + "\nThe mystery number was " + str(random_number) + ". Goodbye !\n")
+    sys.exit(code)
 
 
 signal.signal(signal.SIGTERM, goodbye)
@@ -35,30 +43,35 @@ signal.signal(signal.SIGINT, goodbye)
 
 def write_in(text: str):
     """
-    Function to write given text into the game file
-    :param text: String to write in file
+    Write given text into the game_file.
+    :param text: String to write in file.
+    :type text: str
     """
-    file = open(game_file, 'w')
-    file.write(text)
-    file.close()
-    
+    try:
+        with open(game_file, 'w') as file:
+            file.write(text)
+    except Exception as error:
+        goodbye(error.args[0], str(error))
+
 
 def wait_for_response():
     """
-    Function to wait and get the response from the player into the game file
-    :return: The response of the player, an integer
+    Wait and get the response from the player into the game_file.
+    :return: The response of the player, an integer.
     """
     first_line = "y"
     while not re.match(pattern, first_line):
         sleep(3)
-        file = open(game_file, 'r')
-        first_line = file.readline()
-        file.close()
+        try:
+            with open(game_file, 'r') as file:
+                first_line = file.readline()
+        except Exception as error:
+            goodbye(error.args[0], str(error))
     return int(first_line)
 
 
 write_in("Find the mystery number !")
-print(random_number)
+
 while int(user_entry) != int(random_number):
 
     user_entry = wait_for_response()
@@ -69,5 +82,5 @@ while int(user_entry) != int(random_number):
         write_in("less")
     counter += 1
 
-write_in("You win\nIn " + str(counter) + " tries !")
-sys.exit(0)
+write_in("You win\nIn " + str(counter) + " tries !\n")
+goodbye(0)

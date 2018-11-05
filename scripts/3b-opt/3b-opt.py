@@ -75,11 +75,13 @@ def get_directory_hash(directory: str):
     :return: hex sha256 hash of the directory.
     """
     write_stdout("Computing hash for " + directory + "...\n")
+
     hashes = []
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
         for file_name in file_names:
             with open(dir_path + "/" + file_name, 'rb') as f:
+                # Process file 4096bytes per 4096bytes so the RAM will not be full
                 for block in iter(lambda: f.read(4096), b''):
                     sha256.update(block)
             hashes.append(sha256.hexdigest())

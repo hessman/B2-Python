@@ -17,24 +17,6 @@ import os
 config_dir = "./.config"
 hashes_json = config_dir + "/hashes.json"
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-q", "--quiet", help="quiet mode, no stdout",
-                    action="store_true")
-parser.add_argument("directories_to_backup", help="path to the directories to backup",
-                    type=str)
-parser.add_argument("backup_directory", help="path where the directories will be backed up",
-                    type=str)
-args = parser.parse_args()
-
-if args.quiet:
-    quiet = True
-else:
-    quiet = False
-
-backup_dir = args.backup_directory
-# TODO : how can I get multiple directories in args...
-dirs_to_backup = ['./things', './other_things']
-
 
 def terminate(code: int, message=""):
     """
@@ -56,6 +38,28 @@ def terminate(code: int, message=""):
 
 signal.signal(signal.SIGTERM, terminate)
 signal.signal(signal.SIGINT, terminate)
+
+
+parser = argparse.ArgumentParser(description="A simple backup tool",
+                                 epilog="Exemple :./3b-opt.py -s ./things ./other_things -o ./data",
+                                 prog="3b-opt")
+parser.add_argument("-q", "--quiet",
+                    help="quiet mode, no stdout",
+                    action="store_true")
+parser.add_argument("-s", "--sources",
+                    nargs="+",
+                    help="path to the directories to backup",
+                    required=True,
+                    type=str)
+parser.add_argument("-o", "--output",
+                    help="path where the directories will be backed up",
+                    required=True,
+                    type=str)
+args = parser.parse_args()
+
+quiet = args.quiet
+dirs_to_backup = args.sources
+backup_dir = args.output
 
 
 def write_stdout(message: str):

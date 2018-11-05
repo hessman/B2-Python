@@ -13,7 +13,7 @@ import sys
 import os
 
 backup_dir = "./data"
-config_dir = "./data/.config"
+config_dir = "./.config"
 hashes_json = config_dir + "/hashes.json"
 
 dir_to_backup = "./things"
@@ -151,20 +151,25 @@ def check_for_changes(directory: str):
     :return result: result['hash'] contains the new hash.
     :return None: If the hashes are equal, no need to backup.
     """
+
+    # I use a dictionary as return for more readability
     result = {'hash': get_directory_hash(directory)}
 
     with open(hashes_json, 'r') as f:
         data = json.load(f)
 
-    sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
     sys.stdout.write("computed hash for " + directory + " : " + result['hash'] + "\n")
+
     if directory in data:
+        sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
         if result['hash'] == data[directory]:
+            sys.stdout.write("Same hashes !\n")
             return None
         else:
             sys.stdout.write("Different hashes !\n")
             return result
     else:
+        sys.stdout.write("no hash found for " + directory + " in " + hashes_json + "\n")
         sys.stdout.write("New archive !\n")
         return result
 
@@ -174,4 +179,4 @@ check_result = check_for_changes(dir_to_backup)
 if check_result is not None:
     local_backup(dir_to_backup, check_result['hash'])
 else:
-    terminate(0, "Same hashes.")
+    terminate(0, "Work is done !")

@@ -152,7 +152,8 @@ def check_for_changes(directory: str):
     :return None: If the hashes are equal, no need to backup.
     """
     result = {'hash': get_directory_hash(directory)}
-    with open(hashes_json) as f:
+
+    with open(hashes_json, 'r') as f:
         data = json.load(f)
 
     sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")

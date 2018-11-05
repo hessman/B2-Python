@@ -155,7 +155,7 @@ def update_json(directory: str, new_hash: str):
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
-        terminate(0, "Done !")
+        write_stdout("Done !\n")
     except Exception as error:
         terminate(error.args[0], str(error))
 
@@ -172,7 +172,7 @@ def check_for_changes(directory: str):
     # I use a dictionary as return for more readability
     result = {'hash': get_directory_hash(directory)}
 
-    with open(hashes_json) as f:
+    with open(hashes_json, 'r') as f:
         data = json.load(f)
 
     write_stdout("computed hash for " + directory + " : " + result['hash'] + "\n")

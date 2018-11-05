@@ -5,8 +5,8 @@
 # Anthony DOMINGUE
 # 04/11/2018
 
-# TODO : argparse --help --quiet directory(ies)_path data_path
 
+import argparse
 import tarfile
 import hashlib
 import signal
@@ -14,12 +14,25 @@ import json
 import sys
 import os
 
-quiet = False
-
-backup_dir = "./data"
-config_dir = "./data/.config"
+config_dir = "./.config"
 hashes_json = config_dir + "/hashes.json"
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-q", "--quiet", help="quiet mode, no stdout",
+                    action="store_true")
+parser.add_argument("directories_to_backup", help="path to the directories to backup",
+                    type=str)
+parser.add_argument("backup_directory", help="path where the directories will be backed up",
+                    type=str)
+args = parser.parse_args()
+
+if args.quiet:
+    quiet = True
+else:
+    quiet = False
+
+backup_dir = args.backup_directory
+# TODO : how can I get multiple directories in args...
 dirs_to_backup = ['./things', './other_things']
 
 
@@ -31,7 +44,7 @@ def terminate(code: int, message=""):
     :param message: Optional, the message will be print if str.
     """
     if code == 0:
-        sys.stdout.write(message)
+        write_stdout(message)
         write_stdout("\nExiting...\n")
         sys.exit(0)
     else:
@@ -129,7 +142,7 @@ def local_backup(directory: str, new_hash: str):
     :type new_hash: str
     """
     output_filename = os.path.basename(directory)
-    write_stdout("Local backup for" + directory + " in progress...\n")
+    write_stdout("Local backup for " + directory + " in progress...\n")
     try:
         to_tar_gz(directory, backup_dir + "/" + output_filename)
         write_stdout("Done !\n")
@@ -186,7 +199,7 @@ def check_for_changes(directory: str):
             write_stdout("Different hashes !\n")
             return result
     else:
-        write_stdout("no hash found for " + directory + "in " + hashes_json + "\n")
+        write_stdout("no hash found for " + directory + " in " + hashes_json + "\n")
         write_stdout("New archive !\n")
         return result
 

@@ -6,7 +6,6 @@
 # 04/11/2018
 
 # TODO : argparse --help --quiet directory(ies)_path data_path
-# TODO : handle of multiple directories
 
 import tarfile
 import hashlib
@@ -21,8 +20,7 @@ backup_dir = "./data"
 config_dir = "./data/.config"
 hashes_json = config_dir + "/hashes.json"
 
-dir_to_backup = "./things"
-output_filename = os.path.basename(dir_to_backup)
+dirs_to_backup = ['./things', './other_things']
 
 
 def terminate(code: int, message=""):
@@ -76,7 +74,7 @@ def get_directory_hash(directory: str):
     :type directory: str
     :return: hex sha256 hash of the directory.
     """
-    write_stdout("Computing hash...\n")
+    write_stdout("Computing hash for " + directory + "...\n")
     hashes = []
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
@@ -97,8 +95,10 @@ def initialisation():
     Check if required directories and files exist and create them if needed.
     """
     write_stdout("Initialisation...\n")
-    if not os.path.isdir(dir_to_backup):
-        terminate(100, "No directory to backup !")
+
+    for directory in dirs_to_backup:
+        if not os.path.isdir(directory):
+            terminate(100, "No directory " + directory + " to backup !")
     if not os.path.exists(backup_dir):
         try:
             os.makedirs(backup_dir)
@@ -126,7 +126,8 @@ def local_backup(directory: str, new_hash: str):
     :param new_hash: The hash of the directory to backup.
     :type new_hash: str
     """
-    write_stdout("Local backup in progress...\n")
+    output_filename = os.path.basename(directory)
+    write_stdout("Local backup for" + directory + " in progress...\n")
     try:
         to_tar_gz(directory, backup_dir + "/" + output_filename)
         write_stdout("Done !\n")
@@ -172,22 +173,26 @@ def check_for_changes(directory: str):
     with open(hashes_json) as f:
         data = json.load(f)
 
-    write_stdout("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
     write_stdout("computed hash for " + directory + " : " + result['hash'] + "\n")
+
     if directory in data:
+        write_stdout("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
         if result['hash'] == data[directory]:
+            write_stdout("Same hashes !\n")
             return None
         else:
             write_stdout("Different hashes !\n")
             return result
     else:
+        write_stdout("no hash found for " + directory + "in " + hashes_json + "\n")
         write_stdout("New archive !\n")
         return result
 
 
 initialisation()
-check_result = check_for_changes(dir_to_backup)
-if check_result is not None:
-    local_backup(dir_to_backup, check_result['hash'])
-else:
-    terminate(0, "Same hashes.")
+
+for dir_to_backup in dirs_to_backup:
+    check_result = check_for_changes(dir_to_backup)
+    if check_result is not None:
+        local_backup(dir_to_backup, check_result['hash'])
+terminate(0, "Work is done !")

@@ -3,9 +3,9 @@
 # 3c-ssh.py
 # Backup tool
 # Anthony DOMINGUE
-# 04/11/2018
+# 06/11/2018
 
-
+import paramiko
 import argparse
 import tarfile
 import hashlib
@@ -36,32 +36,6 @@ def terminate(code: int, message=""):
         sys.exit(code)
 
 
-signal.signal(signal.SIGTERM, terminate)
-signal.signal(signal.SIGINT, terminate)
-
-
-parser = argparse.ArgumentParser(description="A simple backup tool",
-                                 epilog="Example :./3c-ssh.py -s ./things ./other_things -o ./data",
-                                 prog="3b-opt")
-parser.add_argument("-q", "--quiet",
-                    help="quiet mode, no stdout",
-                    action="store_true")
-parser.add_argument("-s", "--sources",
-                    nargs="+",
-                    help="path to the directories to backup",
-                    required=True,
-                    type=str)
-parser.add_argument("-o", "--output",
-                    help="path where the directories will be backed up",
-                    required=True,
-                    type=str)
-args = parser.parse_args()
-
-quiet = args.quiet
-dirs_to_backup = args.sources
-backup_dir = args.output
-
-
 def write_stdout(message: str):
     """
     Write message in sys.stdout if not in quiet mode.
@@ -70,6 +44,63 @@ def write_stdout(message: str):
     """
     if not quiet:
         sys.stdout.write(message)
+
+
+signal.signal(signal.SIGTERM, terminate)
+signal.signal(signal.SIGINT, terminate)
+
+parser = argparse.ArgumentParser(description="A simple backup tool",
+                                 epilog="Example :./3c-ssh.py -s ./things ./other_things -o ./data",
+                                 prog="3b-opt")
+
+basic_args = parser.add_argument_group('required arguments')
+ssh_args = parser.add_argument_group('optional ssh arguments')
+
+parser.add_argument("-q", "--quiet",
+                    help="quiet mode, no stdout",
+                    action="store_true")
+
+# Basic arguments group
+basic_args.add_argument("-s", "--sources",
+                        nargs="+",
+                        help="path to the directories to backup",
+                        required=True,
+                        type=str)
+basic_args.add_argument("-o", "--output",
+                        help="path where the directories will be backed up",
+                        required=True,
+                        type=str)
+# SSH arguments group
+ssh_args.add_argument("-p", "--port",
+                      help="ssh port for distant server",
+                      type=str)
+ssh_args.add_argument("-a", "--address",
+                      help="address for distant server",
+                      type=str)
+ssh_args.add_argument("-u", "--username",
+                      help="ssh username for distant server",
+                      type=str)
+ssh_args.add_argument("-P", "--password",
+                      help="ssh password for distant server",
+                      type=str)
+
+args = parser.parse_args()
+
+quiet = args.quiet
+dirs_to_backup = args.sources
+backup_dir = args.output
+
+# SSH arguments are inclusive, they must be used all together
+if args.port is None and args.username is None and args.address is None and args.password is None:
+    ssh = False
+elif args.port is not None or args.username is not None or args.address is not None or args.password is not None:
+    terminate(101, "Missing argument : for ssh use all ssh arguments are required")
+else:
+    ssh = True
+    ssh_port = args.port
+    ssh_username = args.username
+    ssh_address = args.address
+    ssh_password = args.password
 
 
 def to_tar_gz(source: str, output: str):
@@ -134,6 +165,7 @@ def initialisation():
                 f.write('{}')
         except Exception as error:
             terminate(error.args[0], str(error))
+    # Check if the hashes_json file is a valid json, if not repair it
     if os.path.exists(hashes_json):
         try:
             with open(hashes_json, 'r') as f:
@@ -165,6 +197,17 @@ def local_backup(directory: str, new_hash: str):
         update_json(directory, new_hash)
     except Exception as error:
         terminate(error.args[0], str(error))
+
+
+def distant_backup(directory: str, new_hash: str):
+    """
+    Backup on distant server to the backup_dir by ssh.
+    :param directory: Path of the directory to backup.
+    :type directory: str
+    :param new_hash: The hash of the directory to backup.
+    :type new_hash: str
+    """
+    print("coming soon !")
 
 
 def update_json(directory: str, new_hash: str):

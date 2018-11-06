@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# 3b-opt.py
+# 3c-ssh.py
 # Backup tool
 # Anthony DOMINGUE
 # 01/11/2018
@@ -101,6 +101,18 @@ def initialisation():
                 f.write('{}')
         except Exception as error:
             terminate(error.args[0], str(error))
+    if os.path.exists(hashes_json):
+        try:
+            with open(hashes_json, 'r') as f:
+                json.load(f)
+        except Exception as error:
+            sys.stderr.write("Error " + str(error.args[0]) +
+                             "\nInvalid " + hashes_json + " file...\nTry repairing it...\n")
+            try:
+                with open(hashes_json, 'w') as f:
+                    f.write('{}')
+            except Exception as error:
+                terminate(error.args[0], str(error))
     sys.stdout.write("Done !\n")
 
 

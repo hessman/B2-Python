@@ -118,6 +118,7 @@ def to_tar_gz(source: str, output: str):
 def get_directory_hash(directory: str):
     """
     Give a SHA256 hash of the whole given directory by hashing recursively and hash the array of hashes.
+    It hash files content, files name and directories name.
     :param directory: Path of the directory to hash.
     :type directory: str
     :return: hex sha256 hash of the directory.
@@ -128,6 +129,8 @@ def get_directory_hash(directory: str):
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
         for file_name in file_names:
+            sha256.update(str(dir_names).encode('utf-8'))
+            sha256.update(str(file_name).encode('utf-8'))
             with open(dir_path + "/" + file_name, 'rb') as f:
                 # Process file 4096bytes per 4096bytes so the RAM will not be full
                 for block in iter(lambda: f.read(4096), b''):

@@ -93,14 +93,14 @@ backup_dir = args.output
 # SSH arguments are inclusive, they must be used all together
 if args.port is None and args.username is None and args.address is None and args.password is None:
     ssh = False
-elif args.port is not None or args.username is not None or args.address is not None or args.password is not None:
-    terminate(101, "Missing argument : for ssh use all ssh arguments are required")
-else:
+elif args.port is not None and args.username is not None and args.address is not None and args.password is not None:
     ssh = True
     ssh_port = args.port
     ssh_username = args.username
     ssh_address = args.address
     ssh_password = args.password
+else:
+    terminate(101, "Missing argument : for ssh use all ssh arguments are required")
 
 
 def to_tar_gz(source: str, output: str):
@@ -271,5 +271,8 @@ initialisation()
 for dir_to_backup in dirs_to_backup:
     check_result = check_for_changes(dir_to_backup)
     if check_result is not None:
-        local_backup(dir_to_backup, check_result['hash'])
+        if ssh:
+            distant_backup(dir_to_backup, check_result['hash'])
+        else:
+            local_backup(dir_to_backup, check_result['hash'])
 terminate(0, "Work is done !")

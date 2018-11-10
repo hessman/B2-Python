@@ -5,7 +5,8 @@
 # Anthony DOMINGUE
 # 06/11/2018
 
-import paramiko
+from paramiko import SSHClient
+from scp import SCPClient
 import argparse
 import tarfile
 import hashlib
@@ -53,8 +54,8 @@ parser = argparse.ArgumentParser(description="A simple backup tool",
                                  epilog="Example :./3c-ssh.py -s ./things ./other_things -o ./data",
                                  prog="3b-opt")
 
-basic_args = parser.add_argument_group('required arguments')
-ssh_args = parser.add_argument_group('optional ssh arguments')
+basic_args = parser.add_argument_group("required arguments")
+ssh_args = parser.add_argument_group("optional ssh arguments")
 
 parser.add_argument("-q", "--quiet",
                     help="quiet mode, no stdout",
@@ -83,6 +84,9 @@ ssh_args.add_argument("-u", "--username",
 ssh_args.add_argument("-P", "--password",
                       help="ssh password for distant server",
                       type=str)
+ssh_args.add_argument("-D", "--distant_directory",
+                      help="Path of the distant backup directory",
+                      type=str)
 
 args = parser.parse_args()
 
@@ -90,15 +94,22 @@ quiet = args.quiet
 dirs_to_backup = args.sources
 backup_dir = args.output
 
+ssh = {"isWanted": None, "port": None,
+       "username": None, "address": None,
+       "password": None, "client": None,
+       "directory": None}
+
 # SSH arguments are inclusive, they must be used all together
-if args.port is None and args.username is None and args.address is None and args.password is None:
-    ssh = False
-elif args.port is not None and args.username is not None and args.address is not None and args.password is not None:
-    ssh = True
-    ssh_port = args.port
-    ssh_username = args.username
-    ssh_address = args.address
-    ssh_password = args.password
+if args.port is None and args.username is None and args.address is None and \
+        args.password is None and args.distant_directory is None:
+    ssh["isWanted"] = False
+elif args.port is not None and args.username is not None and args.address is not None and \
+        args.password is not None and args.distant_directory is not None:
+    ssh["isWanted"] = True
+    ssh["port"] = args.port
+    ssh["username"] = args.username
+    ssh["address"] = args.address
+    ssh["password"] = args.password
 else:
     terminate(101, "Missing argument : for ssh use all ssh arguments are required")
 
@@ -191,26 +202,34 @@ def local_backup(directory: str, new_hash: str):
     :type directory: str
     :param new_hash: The hash of the directory to backup.
     :type new_hash: str
+    :return archive: Dict with archive information.
     """
     output_filename = os.path.basename(directory)
+    output_path = backup_dir + "/" + output_filename
+    archive = {"path": output_path, "filename": output_filename}
     write_stdout("Local backup for " + directory + " in progress...\n")
     try:
-        to_tar_gz(directory, backup_dir + "/" + output_filename)
+        to_tar_gz(directory, output_path)
         write_stdout("Done !\n")
         update_json(directory, new_hash)
+        return archive
     except Exception as error:
         terminate(error.args[0], str(error))
 
 
-def distant_backup(directory: str, new_hash: str):
-    """
-    Backup on distant server to the backup_dir by ssh.
-    :param directory: Path of the directory to backup.
-    :type directory: str
-    :param new_hash: The hash of the directory to backup.
-    :type new_hash: str
-    """
-    print("coming soon !")
+def transfer_backup(archive: dict):
+    try:
+        ssh["client"] = SSHClient()
+        ssh["client"].load_system_host_keys()
+        ssh["client"].connect(ssh["address"],
+                              port=ssh["port"],
+                              username=ssh["username"],
+                              password=ssh["password"])
+
+        with SCPClient(ssh["client"].get_transport()) as scp:
+            scp.put(archive["path"], ssh["directory"] + "/" + archive["filename"])
+    except Exception as error:
+        terminate(error.args[0], str(error))
 
 
 def update_json(directory: str, new_hash: str):
@@ -271,8 +290,9 @@ initialisation()
 for dir_to_backup in dirs_to_backup:
     check_result = check_for_changes(dir_to_backup)
     if check_result is not None:
-        if ssh:
-            distant_backup(dir_to_backup, check_result['hash'])
+        if ssh["status"]:
+            archive_info = local_backup(dir_to_backup, check_result['hash'])
+            transfer_backup(archive_info)
         else:
             local_backup(dir_to_backup, check_result['hash'])
 terminate(0, "Work is done !")

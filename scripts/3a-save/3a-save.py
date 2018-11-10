@@ -1,6 +1,6 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
-# 3c-ssh.py
+# 3a-save.py
 # Backup tool
 # Anthony DOMINGUE
 # 01/11/2018
@@ -67,16 +67,16 @@ def get_directory_hash(directory: str):
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
         for file_name in file_names:
-            sha256.update(str(dir_names).encode('utf-8'))
-            sha256.update(str(file_name).encode('utf-8'))
-            with open(dir_path + "/" + file_name, 'rb') as f:
+            sha256.update(str(dir_names).encode("utf-8"))
+            sha256.update(str(file_name).encode("utf-8"))
+            with open(dir_path + '/' + file_name, 'rb') as f:
                 # Process file 4096bytes per 4096bytes so the RAM will not be full
                 for block in iter(lambda: f.read(4096), b''):
                     sha256.update(block)
             hashes.append(sha256.hexdigest())
     sha256 = hashlib.sha256()
     for h in hashes:
-        sha256.update(h.encode('utf-8'))
+        sha256.update(h.encode("utf-8"))
     sys.stdout.write("Done !\n")
     return sha256.hexdigest()
 
@@ -101,9 +101,10 @@ def initialisation():
     if not os.path.exists(hashes_json):
         try:
             with open(hashes_json, 'a+') as f:
-                f.write('{}')
+                f.write("{}")
         except Exception as error:
             terminate(error.args[0], str(error))
+    # Check if the hashes_json file is a valid json, if not repair it
     if os.path.exists(hashes_json):
         try:
             with open(hashes_json, 'r') as f:
@@ -113,7 +114,7 @@ def initialisation():
                              "\nInvalid " + hashes_json + " file...\nTry repairing it...\n")
             try:
                 with open(hashes_json, 'w') as f:
-                    f.write('{}')
+                    f.write("{}")
             except Exception as error:
                 terminate(error.args[0], str(error))
     sys.stdout.write("Done !\n")
@@ -129,7 +130,7 @@ def local_backup(directory: str, new_hash: str):
     """
     sys.stdout.write("Local backup in progress...\n")
     try:
-        to_tar_gz(directory, backup_dir + "/" + output_filename)
+        to_tar_gz(directory, backup_dir + '/' + output_filename)
         sys.stdout.write("Done !\n")
         update_json(directory, new_hash)
     except Exception as error:
@@ -163,35 +164,38 @@ def check_for_changes(directory: str):
     Compare hash in hashes_json and the return of get_directory_hash for a given directory.
     :param directory: The directory to check and eventually backup.
     :type directory: str
-    :return result: result['hash'] contains the new hash.
-    :return None: If the hashes are equal, no need to backup.
+    :return result: Dictionary that contains hash of the directory to check and bool about the checking.
     """
 
     # I use a dictionary as return for more readability
-    result = {'hash': get_directory_hash(directory)}
+    result = {"hash": get_directory_hash(directory)}
 
     with open(hashes_json, 'r') as f:
         data = json.load(f)
 
-    sys.stdout.write("computed hash for " + directory + " : " + result['hash'] + "\n")
+    sys.stdout.write("computed hash for " + directory + " : " + result["hash"] + "\n")
 
     if directory in data:
         sys.stdout.write("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
-        if result['hash'] == data[directory]:
+        if result["hash"] == data[directory]:
             sys.stdout.write("Same hashes !\n")
-            return None
+            result["isPositive"] = False
+            return result
         else:
             sys.stdout.write("Different hashes !\n")
+            result["isPositive"] = True
             return result
     else:
         sys.stdout.write("no hash found for " + directory + " in " + hashes_json + "\n")
         sys.stdout.write("New archive !\n")
+        result["isPositive"] = True
         return result
 
 
 initialisation()
+
 check_result = check_for_changes(dir_to_backup)
-if check_result is not None:
-    local_backup(dir_to_backup, check_result['hash'])
+if check_result["isPositive"]:
+    local_backup(dir_to_backup, check_result["hash"])
 else:
     terminate(0, "Work is done !")

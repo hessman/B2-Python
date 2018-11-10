@@ -1,12 +1,12 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # 3c-ssh.py
 # Backup tool
 # Anthony DOMINGUE
 # 06/11/2018
 
-from paramiko import SSHClient
 from scp import SCPClient
+import paramiko
 import argparse
 import tarfile
 import hashlib
@@ -85,8 +85,12 @@ ssh_args.add_argument("-P", "--password",
                       help="ssh password for distant server",
                       type=str)
 ssh_args.add_argument("-D", "--distant_directory",
-                      help="Path of the distant backup directory",
+                      help="path of the distant backup directory",
                       type=str)
+ssh_args.add_argument("-r", "--remove_local",
+                      help="remove the local archive if the transfer is successful",
+                      action="store_true")
+
 
 args = parser.parse_args()
 
@@ -97,19 +101,21 @@ backup_dir = args.output
 ssh = {"isWanted": None, "port": None,
        "username": None, "address": None,
        "password": None, "client": None,
-       "directory": None}
+       "directory": None, "localRemoveWanted": None}
 
 # SSH arguments are inclusive, they must be used all together
 if args.port is None and args.username is None and args.address is None and \
-        args.password is None and args.distant_directory is None:
+        args.password is None and args.distant_directory is None and args.remove_local:
     ssh["isWanted"] = False
 elif args.port is not None and args.username is not None and args.address is not None and \
-        args.password is not None and args.distant_directory is not None:
+        args.password is not None and args.distant_directory is not None and args.remove_local is not None:
     ssh["isWanted"] = True
     ssh["port"] = args.port
     ssh["username"] = args.username
     ssh["address"] = args.address
     ssh["password"] = args.password
+    ssh["directory"] = args.distant_directory
+    ssh["localRemoveWanted"] = args.remove_local
 else:
     terminate(101, "Missing argument : for ssh use all ssh arguments are required")
 
@@ -140,16 +146,16 @@ def get_directory_hash(directory: str):
     for dir_path, dir_names, file_names in os.walk(directory):
         sha256 = hashlib.sha256()
         for file_name in file_names:
-            sha256.update(str(dir_names).encode('utf-8'))
-            sha256.update(str(file_name).encode('utf-8'))
-            with open(dir_path + "/" + file_name, 'rb') as f:
+            sha256.update(str(dir_names).encode("utf-8"))
+            sha256.update(str(file_name).encode("utf-8"))
+            with open(dir_path + "/" + file_name, "rb") as f:
                 # Process file 4096bytes per 4096bytes so the RAM will not be full
                 for block in iter(lambda: f.read(4096), b''):
                     sha256.update(block)
             hashes.append(sha256.hexdigest())
     sha256 = hashlib.sha256()
     for h in hashes:
-        sha256.update(h.encode('utf-8'))
+        sha256.update(h.encode("utf-8"))
     write_stdout("Done !\n")
     return sha256.hexdigest()
 
@@ -176,7 +182,7 @@ def initialisation():
     if not os.path.exists(hashes_json):
         try:
             with open(hashes_json, 'w') as f:
-                f.write('{}')
+                f.write("{}")
         except Exception as error:
             terminate(error.args[0], str(error))
     # Check if the hashes_json file is a valid json, if not repair it
@@ -189,7 +195,7 @@ def initialisation():
                              "\nInvalid " + hashes_json + " file...\nTry repairing it...\n")
             try:
                 with open(hashes_json, 'w') as f:
-                    f.write('{}')
+                    f.write("{}")
             except Exception as error:
                 terminate(error.args[0], str(error))
     write_stdout("Done !\n")
@@ -218,16 +224,33 @@ def local_backup(directory: str, new_hash: str):
 
 
 def transfer_backup(archive: dict):
+    """
+    Transfer an archive to a distant server by SCP.
+    :param archive: Dictionary with information about the archive to transfer.
+    :type archive: dict
+    """
+    write_stdout("SCP transfer for '" + archive["filename"] + "' archive to " + ssh["address"]
+                 + ":" + ssh["port"] + " in '" + ssh["directory"] + "' in progress...\n")
     try:
-        ssh["client"] = SSHClient()
+        ssh["client"] = paramiko.SSHClient()
         ssh["client"].load_system_host_keys()
-        ssh["client"].connect(ssh["address"],
+        # AutoAddPolicy for known host to avoid error due to unknown host
+        ssh["client"].set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh["client"].connect("192.168.56.100",
                               port=ssh["port"],
                               username=ssh["username"],
                               password=ssh["password"])
 
+        # I prefer SCP over SFTP because it is more appropriate for just transferring a file
         with SCPClient(ssh["client"].get_transport()) as scp:
             scp.put(archive["path"], ssh["directory"] + "/" + archive["filename"])
+        write_stdout("Transfer successful !\n")
+
+        if ssh["localRemoveWanted"]:
+            write_stdout("Removing local copy for '" + archive["filename"] + "'...\n")
+            os.remove(archive["path"])
+            write_stdout("Done !\n")
+
     except Exception as error:
         terminate(error.args[0], str(error))
 
@@ -259,29 +282,32 @@ def check_for_changes(directory: str):
     Compare hash in hashes_json and the return of get_directory_hash for a given directory.
     :param directory: The directory to check and eventually backup.
     :type directory: str
-    :return result: result['hash'] contains the new hash.
+    :return result: result["hash"] contains the new hash.
     :return None: If the hashes are equal, no need to backup.
     """
 
     # I use a dictionary as return for more readability
-    result = {'hash': get_directory_hash(directory)}
+    result = {"hash": get_directory_hash(directory)}
 
     with open(hashes_json, 'r') as f:
         data = json.load(f)
 
-    write_stdout("computed hash for " + directory + " : " + result['hash'] + "\n")
+    write_stdout("computed hash for " + directory + " : " + result["hash"] + "\n")
 
     if directory in data:
         write_stdout("founded  hash for " + directory + " : " + data[directory] + " in " + hashes_json + "\n")
-        if result['hash'] == data[directory]:
+        if result["hash"] == data[directory]:
             write_stdout("Same hashes !\n")
-            return None
+            result["isPositive"] = False
+            return result
         else:
             write_stdout("Different hashes !\n")
+            result["isPositive"] = True
             return result
     else:
         write_stdout("no hash found for " + directory + " in " + hashes_json + "\n")
         write_stdout("New archive !\n")
+        result["isPositive"] = True
         return result
 
 
@@ -289,10 +315,10 @@ initialisation()
 
 for dir_to_backup in dirs_to_backup:
     check_result = check_for_changes(dir_to_backup)
-    if check_result is not None:
-        if ssh["status"]:
-            archive_info = local_backup(dir_to_backup, check_result['hash'])
+    if check_result["isPositive"]:
+        if ssh["isWanted"]:
+            archive_info = local_backup(dir_to_backup, check_result["hash"])
             transfer_backup(archive_info)
         else:
-            local_backup(dir_to_backup, check_result['hash'])
+            local_backup(dir_to_backup, check_result["hash"])
 terminate(0, "Work is done !")

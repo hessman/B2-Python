@@ -3,7 +3,7 @@
 # 3c-ssh.py
 # Backup tool
 # Anthony DOMINGUE
-# 06/11/2018
+# 10/11/2018
 
 from scp import SCPClient
 import paramiko
@@ -51,8 +51,9 @@ signal.signal(signal.SIGTERM, terminate)
 signal.signal(signal.SIGINT, terminate)
 
 parser = argparse.ArgumentParser(description="A simple backup tool",
-                                 epilog="Example :./3c-ssh.py -s ./things ./other_things -o ./data",
-                                 prog="3b-opt")
+                                 epilog="./3c-ssh.py -s ./things ./other_things -o ./data -p 22 -a 192.168.56.100 "
+                                        + "-u root -P 123 -D /var/backup -r",
+                                 prog="3c-ssh")
 
 basic_args = parser.add_argument_group("required arguments")
 ssh_args = parser.add_argument_group("optional ssh arguments")
@@ -148,7 +149,7 @@ def get_directory_hash(directory: str):
         for file_name in file_names:
             sha256.update(str(dir_names).encode("utf-8"))
             sha256.update(str(file_name).encode("utf-8"))
-            with open(dir_path + "/" + file_name, "rb") as f:
+            with open(dir_path + '/' + file_name, "rb") as f:
                 # Process file 4096bytes per 4096bytes so the RAM will not be full
                 for block in iter(lambda: f.read(4096), b''):
                     sha256.update(block)
@@ -211,7 +212,7 @@ def local_backup(directory: str, new_hash: str):
     :return archive: Dict with archive information.
     """
     output_filename = os.path.basename(directory)
-    output_path = backup_dir + "/" + output_filename
+    output_path = backup_dir + '/' + output_filename
     archive = {"path": output_path, "filename": output_filename}
     write_stdout("Local backup for " + directory + " in progress...\n")
     try:
@@ -243,7 +244,7 @@ def transfer_backup(archive: dict):
 
         # I prefer SCP over SFTP because it is more appropriate for just transferring a file
         with SCPClient(ssh["client"].get_transport()) as scp:
-            scp.put(archive["path"], ssh["directory"] + "/" + archive["filename"])
+            scp.put(archive["path"], ssh["directory"] + '/' + archive["filename"])
         write_stdout("Transfer successful !\n")
 
         if ssh["localRemoveWanted"]:
@@ -282,8 +283,7 @@ def check_for_changes(directory: str):
     Compare hash in hashes_json and the return of get_directory_hash for a given directory.
     :param directory: The directory to check and eventually backup.
     :type directory: str
-    :return result: result["hash"] contains the new hash.
-    :return None: If the hashes are equal, no need to backup.
+    :return result: Dictionary that contains hash of the directory to check and bool about the checking.
     """
 
     # I use a dictionary as return for more readability

@@ -1,6 +1,7 @@
 # B2-Python
 
-Repo pour le rendu des TP B2 Scripting Python
+**Python Scripting Exercice**
 
-Ma règle E501 pour le standart PEP8 est différente du classique...\
-Pour moi ça sera maxi 120characters et non 80.
+
+My E501 PEP8 rule is not standard, I use 120 chars/line instead of 80.
+

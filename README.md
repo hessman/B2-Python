@@ -1,4 +1,4 @@
-# B2-Python
+# scripting-python
 
 **Python Scripting Exercice**
 
